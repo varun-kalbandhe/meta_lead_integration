@@ -150,7 +150,8 @@ def run_sync_historical_leads_job(user):
         "created": 0,
         "already_exists": 0,
         "email_duplicate": 0,
-        "failed": 0
+        "failed": 0,
+        "failed_details": []
     }
     
     if not token or not form_ids:
@@ -161,7 +162,7 @@ def run_sync_historical_leads_job(user):
     
     for form_id in form_ids_list:
         url = f"https://graph.facebook.com/v19.0/{form_id}/leads"
-        params = {"access_token": token, "limit": 100, "fields": "id,created_time,field_data"}
+        params = {"access_token": token, "limit": 100, "fields": "id,created_time,field_data,ad_id,adset_id,campaign_id"}
         
         while url:
             try:
@@ -195,7 +196,30 @@ def run_sync_historical_leads_job(user):
                             summary["email_duplicate"] += 1
                     except Exception as e:
                         frappe.logger("meta_integration").error(f"Failed to process lead {lead_id}: {str(e)}")
+                        
+                        # Extract basic info for the error report
+                        lead_name = "Unknown"
+                        email = "Unknown"
+                        for f in lead.get("field_data", []):
+                            name = f.get("name")
+                            values = f.get("values", [])
+                            if values:
+                                if name in ["full_name", "first_name"]:
+                                    lead_name = values[0]
+                                elif name == "email":
+                                    email = values[0]
+                                    
                         summary["failed"] += 1
+                        summary["failed_details"].append({
+                            "meta_lead_id": lead_id,
+                            "lead_name": lead_name,
+                            "email": email,
+                            "reason": "Creation Error",
+                            "error": str(e),
+                            "ad_id": lead.get("ad_id"),
+                            "adset_id": lead.get("adset_id"),
+                            "campaign_id": lead.get("campaign_id")
+                        })
                         
                 # Pagination
                 paging = data.get("paging", {})

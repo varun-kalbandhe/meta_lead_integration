@@ -154,6 +154,16 @@ def test_sync():
                                 {"name": "full_name", "values": ["Email Dup User"]},
                                 {"name": "email", "values": [existing_lead_email]}
                             ]
+                        },
+                        {
+                            "id": "meta_lead_fail",
+                            "ad_id": "ad_123",
+                            "adset_id": "adset_456",
+                            "campaign_id": "camp_789",
+                            "field_data": [
+                                {"name": "full_name", "values": ["Fail User"]},
+                                {"name": "email", "values": ["fail@example.com"]}
+                            ]
                         }
                     ],
                     "paging": {
@@ -162,6 +172,14 @@ def test_sync():
                 }, 200)
 
     requests.get = mock_get
+    
+    import meta_lead_integration.meta_lead_integration.api as api_module
+    original_create = api_module._create_lead_from_data
+    def mock_create_lead(meta_lead_id, field_data):
+        if meta_lead_id == "meta_lead_fail":
+            raise Exception("Forced test error")
+        return original_create(meta_lead_id, field_data)
+    api_module._create_lead_from_data = mock_create_lead
     
     # Mock publish_realtime to capture the summary
     original_publish_realtime = frappe.publish_realtime
@@ -188,6 +206,7 @@ def test_sync():
         print(f"Sync Summary: {captured_summary}")
     finally:
         requests.get = original_get
+        api_module._create_lead_from_data = original_create
         frappe.get_single = original_get_single
         frappe.publish_realtime = original_publish_realtime
         if 'logger' in locals():

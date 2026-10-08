@@ -60,16 +60,29 @@ frappe.listview_settings['Lead'].onload = function(listview) {
     });
     
     listview.page.add_inner_button(__('Sync Leads from Meta'), function() {
-        frappe.call({
-            method: 'meta_lead_integration.meta_lead_integration.api.sync_historical_leads',
-            freeze: true,
-            freeze_message: __('Starting Meta Lead Sync...'),
-            callback: function(r) {
-                frappe.show_alert({
-                    message: __('Meta Lead Sync started in background.'),
-                    indicator: 'info'
-                });
+        frappe.prompt([
+            {
+                fieldname: 'from_date',
+                fieldtype: 'Date',
+                label: __('Sync From Date'),
+                description: __('Optional. Only sync leads generated on or after this date.'),
+                reqd: 0
             }
-        });
+        ], function(values) {
+            frappe.call({
+                method: 'meta_lead_integration.meta_lead_integration.api.sync_historical_leads',
+                args: {
+                    from_date: values.from_date
+                },
+                freeze: true,
+                freeze_message: __('Starting Meta Lead Sync...'),
+                callback: function(r) {
+                    frappe.show_alert({
+                        message: __('Meta Lead Sync started in background.'),
+                        indicator: 'info'
+                    });
+                }
+            });
+        }, __('Sync Meta Leads'), __('Start Sync'));
     });
 };

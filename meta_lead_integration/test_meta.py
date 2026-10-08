@@ -175,10 +175,10 @@ def test_sync():
     
     import meta_lead_integration.meta_lead_integration.api as api_module
     original_create = api_module._create_lead_from_data
-    def mock_create_lead(meta_lead_id, field_data):
+    def mock_create_lead(meta_lead_id, field_data, created_time=None):
         if meta_lead_id == "meta_lead_fail":
             raise Exception("Forced test error")
-        return original_create(meta_lead_id, field_data)
+        return original_create(meta_lead_id, field_data, created_time)
     api_module._create_lead_from_data = mock_create_lead
     
     # Mock publish_realtime to capture the summary

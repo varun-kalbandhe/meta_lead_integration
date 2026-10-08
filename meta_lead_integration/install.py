@@ -17,10 +17,16 @@ def setup_custom_fields():
                 "unique": 1
             },
             {
+                "fieldname": "custom_meta_lead_created_time",
+                "label": "Meta Lead Created Time",
+                "fieldtype": "Datetime",
+                "insert_after": "custom_meta_lead_id"
+            },
+            {
                 "fieldname": "custom_industry",
                 "label": "Industry (Meta)",
                 "fieldtype": "Data",
-                "insert_after": "custom_meta_lead_id"
+                "insert_after": "custom_meta_lead_created_time"
             },
             {
                 "fieldname": "custom_current_software",

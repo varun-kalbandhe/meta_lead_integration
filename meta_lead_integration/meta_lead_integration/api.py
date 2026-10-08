@@ -2,7 +2,7 @@ import frappe
 import requests
 from werkzeug.wrappers import Response
 
-def _create_lead_from_data(meta_lead_id, field_data):
+def _create_lead_from_data(meta_lead_id, field_data, created_time=None):
     # Check if lead already exists
     existing = frappe.db.exists("Lead", {"custom_meta_lead_id": meta_lead_id})
     if existing:
@@ -11,6 +11,13 @@ def _create_lead_from_data(meta_lead_id, field_data):
     # Map Meta data to ERPNext Lead fields
     lead_doc = frappe.new_doc("Lead")
     lead_doc.custom_meta_lead_id = meta_lead_id
+    
+    if created_time:
+        from frappe.utils import get_datetime
+        try:
+            lead_doc.custom_meta_lead_created_time = get_datetime(created_time)
+        except Exception:
+            pass
     
     # Defaults in case not provided
     lead_doc.lead_name = "Unknown Lead"
@@ -75,7 +82,8 @@ def fetch_and_create_lead(meta_lead_id):
     # Fetch lead from Meta Graph API
     url = f"https://graph.facebook.com/v19.0/{meta_lead_id}"
     params = {
-        "access_token": token
+        "access_token": token,
+        "fields": "created_time,field_data"
     }
     
     response = requests.get(url, params=params)
@@ -84,8 +92,9 @@ def fetch_and_create_lead(meta_lead_id):
         
     data = response.json()
     field_data = data.get("field_data", [])
+    created_time = data.get("created_time")
     
-    return _create_lead_from_data(meta_lead_id, field_data)
+    return _create_lead_from_data(meta_lead_id, field_data, created_time)
 
 
 @frappe.whitelist(allow_guest=True)
@@ -132,16 +141,17 @@ def webhook():
             return Response("Internal Server Error", status=500, mimetype="text/plain")
 
 @frappe.whitelist()
-def sync_historical_leads():
+def sync_historical_leads(from_date=None):
     frappe.enqueue(
         "meta_lead_integration.meta_lead_integration.api.run_sync_historical_leads_job",
         user=frappe.session.user,
+        from_date=from_date,
         queue="default",
         timeout=1500
     )
     return "started"
 
-def run_sync_historical_leads_job(user):
+def run_sync_historical_leads_job(user, from_date=None):
     settings = frappe.get_single("Meta Integration Settings")
     token = settings.get_password("access_token")
     form_ids = settings.get("lead_form_id")
@@ -158,11 +168,27 @@ def run_sync_historical_leads_job(user):
         frappe.publish_realtime("meta_lead_sync_complete", summary, user=user)
         return
         
+    import json
+    import datetime
+    
+    from_timestamp = None
+    if from_date:
+        try:
+            dt = datetime.datetime.strptime(from_date, "%Y-%m-%d")
+            from_timestamp = int(dt.timestamp())
+        except Exception:
+            pass
+
     form_ids_list = [f.strip() for f in form_ids.split(",") if f.strip()]
     
     for form_id in form_ids_list:
         url = f"https://graph.facebook.com/v19.0/{form_id}/leads"
         params = {"access_token": token, "limit": 100, "fields": "id,created_time,field_data,ad_id,adset_id,campaign_id"}
+        
+        if from_timestamp:
+            params["filtering"] = json.dumps([
+                {"field": "time_created", "operator": "GREATER_THAN_OR_EQUAL", "value": from_timestamp}
+            ])
         
         while url:
             try:
@@ -186,7 +212,7 @@ def run_sync_historical_leads_job(user):
                         
                     # Call direct logic with field_data
                     try:
-                        result = _create_lead_from_data(lead_id, lead.get("field_data", []))
+                        result = _create_lead_from_data(lead_id, lead.get("field_data", []), lead.get("created_time"))
                         status = result.get("status")
                         if status == "created":
                             summary["created"] += 1

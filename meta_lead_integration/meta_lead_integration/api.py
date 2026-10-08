@@ -22,14 +22,20 @@ def _create_lead_from_data(meta_lead_id, field_data, created_time=None):
     # Defaults in case not provided
     lead_doc.lead_name = "Unknown Lead"
     
+    from frappe.utils import strip_html_tags
+    
     for field in field_data:
         name = field.get("name")
         values = field.get("values", [])
         if not values:
             continue
             
-        value = values[0]
+        value = str(values[0])
+        value = strip_html_tags(value).strip()
         
+        if not value:
+            continue
+            
         if name == "full_name":
             lead_doc.lead_name = value
         elif name == "first_name":
@@ -50,6 +56,9 @@ def _create_lead_from_data(meta_lead_id, field_data, created_time=None):
             lead_doc.custom_current_software = value
         elif name == "when_are_you_planning_to_implement_erp?":
             lead_doc.custom_erp_implementation_timeline = value
+            
+    if not lead_doc.lead_name:
+        lead_doc.lead_name = "Unknown Lead"
 
     # Check for duplicate email before inserting
     if lead_doc.email_id:

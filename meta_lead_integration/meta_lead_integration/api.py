@@ -15,7 +15,10 @@ def _create_lead_from_data(meta_lead_id, field_data, created_time=None):
     if created_time:
         from frappe.utils import get_datetime
         try:
-            lead_doc.custom_meta_lead_created_time = get_datetime(created_time)
+            dt = get_datetime(created_time)
+            if dt and hasattr(dt, "tzinfo") and dt.tzinfo:
+                dt = dt.astimezone().replace(tzinfo=None)
+            lead_doc.custom_meta_lead_created_time = dt
         except Exception:
             pass
     

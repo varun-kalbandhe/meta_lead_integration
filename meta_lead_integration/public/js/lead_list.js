@@ -20,17 +20,17 @@ frappe.listview_settings['Lead'].onload = function(listview) {
         `;
 
         if (summary.failed > 0 && summary.failed_details && summary.failed_details.length > 0) {
-            msg += `<hr><h5>Failed Leads Details</h5>
-            <div style="max-height: 300px; overflow-y: auto;">
-                <table class="table table-bordered table-sm" style="font-size: 12px;">
-                    <thead>
+            msg += `<hr><h5 style="margin-bottom: 12px; font-weight: 600;">Failed Leads Details</h5>
+            <div style="max-height: 400px; overflow: auto; border: 1px solid var(--border-color); border-radius: 4px;">
+                <table class="table table-bordered table-sm" style="font-size: 12px; margin-bottom: 0; min-width: 850px;">
+                    <thead style="background: var(--bg-light-gray, #f8f9fa); position: sticky; top: 0; z-index: 1;">
                         <tr>
-                            <th>Meta Lead ID</th>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Reason</th>
-                            <th>Error</th>
-                            <th>Ad Info</th>
+                            <th style="min-width: 140px;">Meta Lead ID</th>
+                            <th style="min-width: 120px;">Name</th>
+                            <th style="min-width: 160px;">Email</th>
+                            <th style="min-width: 110px;">Reason</th>
+                            <th style="min-width: 250px;">Error</th>
+                            <th style="min-width: 120px;">Ad Info</th>
                         </tr>
                     </thead>
                     <tbody>`;
@@ -38,24 +38,32 @@ frappe.listview_settings['Lead'].onload = function(listview) {
             summary.failed_details.forEach(d => {
                 let ad_info = [d.ad_id, d.adset_id, d.campaign_id].filter(Boolean).join("<br>");
                 msg += `<tr>
-                    <td>${d.meta_lead_id || ''}</td>
-                    <td>${d.lead_name || ''}</td>
-                    <td>${d.email || ''}</td>
-                    <td>${d.reason || ''}</td>
-                    <td style="color: red; word-break: break-all;">${d.error || ''}</td>
-                    <td>${ad_info}</td>
+                    <td><code>${d.meta_lead_id || ''}</code></td>
+                    <td><b>${frappe.utils.escape_html(d.lead_name || '')}</b></td>
+                    <td>${frappe.utils.escape_html(d.email || '')}</td>
+                    <td><span class="badge badge-warning" style="color: #856404; background-color: #fff3cd;">${frappe.utils.escape_html(d.reason || '')}</span></td>
+                    <td style="color: var(--text-danger, #e24c4c); font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-word;">${frappe.utils.escape_html(d.error || '')}</td>
+                    <td style="font-size: 11px; color: var(--text-muted);">${ad_info}</td>
                 </tr>`;
             });
             
             msg += `</tbody></table></div>`;
         }
 
-        frappe.msgprint({
+        let d = frappe.msgprint({
             title: __('Meta Sync Summary'),
             message: msg,
             indicator: summary.failed > 0 ? 'orange' : 'green',
-            wide: summary.failed > 0
+            wide: true
         });
+
+        // Ensure the dialog modal is wide enough for full readability
+        if (d && d.$wrapper) {
+            d.$wrapper.find('.modal-dialog').css({
+                'max-width': '950px',
+                'width': '90%'
+            });
+        }
         listview.refresh();
     });
     
